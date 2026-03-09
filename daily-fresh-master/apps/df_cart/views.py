@@ -14,7 +14,7 @@ def user_cart(request):
         'page_name': 1,
         'carts': carts
     }
-    if request.is_ajax():
+    if request.META.get('HTTP_X_REQUESTED_WITH') == 'XMLHttpRequest':
         count = CartInfo.objects.filter(user_id=request.session['user_id']).count()
         # 求当前用户购买了几件商品
         return JsonResponse({'count': count})
@@ -38,7 +38,7 @@ def add(request, gid, count):
         cart.count = count
     cart.save()
     # 如果是ajax提交则直接返回json，否则转向购物车
-    if request.is_ajax():
+    if request.META.get('HTTP_X_REQUESTED_WITH') == 'XMLHttpRequest':
         count = CartInfo.objects.filter(user_id=request.session['user_id']).count()
         # 求当前用户购买了几件商品
         return JsonResponse({'count': count})
