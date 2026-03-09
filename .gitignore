@@ -1,0 +1,71 @@
+# 虚拟环境
+.venv/
+venv/
+env/
+ENV/
+
+# Python 缓存文件
+__pycache__/
+*.py[cod]
+*$py.class
+
+# 编译文件
+*.so
+*.egg
+*.egg-info/
+dist/
+build/
+
+# 测试和覆盖率报告
+.coverage
+.coverage.*
+htmlcov/
+.pytest_cache/
+.tox/
+
+# Jupyter Notebook 临时文件
+.ipynb_checkpoints/
+*.ipynb_checkpoints
+
+# IDE 配置（PyCharm 相关）
+.idea/
+.idea_modules/
+*.iml
+*.iws
+*.ipr
+
+# 环境变量文件
+.env
+*.env
+
+# 日志文件
+*.log
+
+# 数据库文件（Django 默认 SQLite）
+*.db
+*.sqlite3
+
+# 媒体文件上传目录（用户上传的文件，根据项目配置调整）
+/media/
+
+# 静态文件收集输出目录（collectstatic 的输出，根据实际 STATIC_ROOT 调整）
+/staticfiles/
+/static_collected/
+/collected_static/
+
+# 本地设置文件（用于覆盖生产环境配置）
+local_settings.py
+*/local_settings.py
+
+# Django 迁移文件（通常需要提交，此处不忽略；若需忽略可自行添加）
+# */migrations/*.pyc
+# */migrations/__pycache__/
+
+# 其他临时文件
+*.pot
+*.pyc
+*.pid
+
+# 系统文件
+.DS_Store
+Thumbs.db

@@ -1,0 +1,26 @@
+name: Run Automation Tests on Merge
+
+on:
+  push:
+    branches: [ "main" ]
+
+jobs:
+  test:
+    runs-on: self-hosted
+
+    steps:
+      # 检出代码
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+
+      # 运行自动化测试
+      - name: Execute Automation Tests
+        shell: cmd
+        run: |
+          @echo off
+          echo ============================================
+          echo Running Automation Tests...
+          echo ============================================
+          
+          cd Auto_Test
+          python run.py

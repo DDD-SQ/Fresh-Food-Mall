@@ -1,0 +1,24 @@
+# 加入购物车流程
+"用户名"：
+  location : "ID"
+  type : "username"
+
+"密码"：
+  location : "ID"
+  type : "password"
+
+"验证码"：
+  location : "ID"
+  type : "verify_code"
+
+"登录按钮"：
+  location : "NAME"
+  type : "sbtbutton"
+
+"首页按钮"：
+  location : "LINK_TEXT"
+  type : "首页"
+
+"首页按钮"：
+  location : "LINK_TEXT"
+  type : "首页"
