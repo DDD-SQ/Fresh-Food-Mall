@@ -89,7 +89,7 @@ AUTH_PASSWORD_VALIDATORS = [
 
 USE_I18N = True
 
-USE_L10N = True
+# USE_L10N = True
 
 LANGUAGE_CODE = 'zh-hans'  # 后台管理改为中文
 
