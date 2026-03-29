@@ -2,6 +2,9 @@ from selenium.common.exceptions import TimeoutException
 from selenium.webdriver import ActionChains
 from selenium.webdriver.support.wait import WebDriverWait
 from selenium.webdriver.support.select import Select
+import allure
+import time
+import os
 
 from utils import *
 
@@ -90,3 +93,21 @@ class BasePage:
     def document_scroll(self, get, element_name, x, y):
         js = f"document.{get}({element_name}).scrollTo({x},{y})"
         self.driver.execute_script(js)
+
+    def save_screenshot(self, name):
+        """
+        保存截图并附加到Allure报告
+        
+        Args:
+            name: 截图名称
+        """
+        screenshots_dir = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "screenshots")
+        if not os.path.exists(screenshots_dir):
+            os.makedirs(screenshots_dir)
+        timestamp = time.strftime("%Y%m%d_%H%M%S")
+        filename = f"{name}_{timestamp}.png"
+        filepath = os.path.join(screenshots_dir, filename)
+        self.driver.save_screenshot(filepath)
+        with open(filepath, "rb") as f:
+            allure.attach(f.read(), name=name, attachment_type=allure.attachment_type.PNG)
+        return filepath

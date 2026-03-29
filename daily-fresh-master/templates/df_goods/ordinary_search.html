@@ -61,20 +61,20 @@
         <div class="pagenation">
 {#                判断是否是第一页#}
             {% if page.has_previous %}
-                <a href="{% url "df_user:ordinary_search" %}?q={{ query }}&amp;page={{ page.previous_page_number }}">上一页</a>
+                <a href="{% url "df_goods:ordinary_search" %}?q={{ query }}&amp;page={{ page.previous_page_number }}">上一页</a>
             {% endif %}
 
             {% for pindex in paginator.page_range %}
                 {% if pindex == page.number %}
                     <a href="#" class="active">{{ pindex }}</a>
                 {% else %}
-                    <a href="{% url "df_user:ordinary_search" %}?q={{ query }}&amp;page={{ pindex }}">{{ pindex }}</a>
+                    <a href="{% url "df_goods:ordinary_search" %}?q={{ query }}&amp;page={{ pindex }}">{{ pindex }}</a>
                 {% endif %}
             {% endfor %}
 
 {#                是否又第二页#}
             {% if page.has_next %}
-                <a href="{% url "df_user:ordinary_search" %}?q={{ query }}&amp;page={{ page.next_page_number }}">下一页></a>
+                <a href="{% url "df_goods:ordinary_search" %}?q={{ query }}&amp;page={{ page.next_page_number }}">下一页></a>
             {% endif %}
         </div>
     </div>

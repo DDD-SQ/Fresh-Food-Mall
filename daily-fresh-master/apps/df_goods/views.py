@@ -1,3 +1,15 @@
+"""
+商品视图模块
+
+本模块提供商品相关的视图函数，包括首页、列表页、详情页和搜索功能。
+
+主要功能：
+1. 商品首页展示
+2. 商品列表页（分类、排序、分页）
+3. 商品详情页
+4. [新增] 增强版搜索功能（支持拼音、英文、模糊搜索等）
+"""
+
 from django.core.paginator import Paginator
 from django.shortcuts import render
 
@@ -7,14 +19,20 @@ from df_cart.models import CartInfo
 from df_user.models import GoodsBrowser
 from elasticsearch import Elasticsearch
 from django.conf import settings
+# [新增] 导入正则表达式模块，用于判断输入是否为拼音
+import re
 
 
 def index(request):
-    # 查询各个分类的最新4条，最热4条数据
+    """
+    首页视图函数
+    
+    展示各个分类的最新4条和最热4条商品数据
+    """
     typelist = TypeInfo.objects.all()
-    #  _set 连表操作
-    type0 = typelist[0].goodsinfo_set.order_by('-id')[0:4]  # 按照上传顺序
-    type01 = typelist[0].goodsinfo_set.order_by('-gclick')[0:4]  # 按照点击量
+    # 获取各分类的最新商品（按上传顺序）
+    type0 = typelist[0].goodsinfo_set.order_by('-id')[0:4]
+    type01 = typelist[0].goodsinfo_set.order_by('-gclick')[0:4]  # 按点击量
     type1 = typelist[1].goodsinfo_set.order_by('-id')[0:4]
     type11 = typelist[1].goodsinfo_set.order_by('-gclick')[0:4]
     type2 = typelist[2].goodsinfo_set.order_by('-id')[0:4]
@@ -28,7 +46,6 @@ def index(request):
 
     cart_num = 0
     # 判断是否存在登录状态
-    # if request.session.has_key('user_id'):
     if 'user_id' in request.session:
         user_id = request.session['user_id']
         cart_num = CartInfo.objects.filter(user_id=int(user_id)).count()
@@ -49,14 +66,19 @@ def index(request):
 
 
 def good_list(request, tid, pindex, sort):
-    # tid：商品种类信息  pindex：商品页码 sort：商品显示分类方式
+    """
+    商品列表视图函数
+    
+    Args:
+        tid: 商品种类ID
+        pindex: 商品页码
+        sort: 商品显示分类方式（1=最新，2=价格，3=人气）
+    """
     typeinfo = TypeInfo.objects.get(pk=int(tid))
 
-    # 根据主键查找当前的商品分类  海鲜或者水果
-    news = typeinfo.goodsinfo_set.order_by('-id')[0:2]
     # list.html左侧最新商品推荐
+    news = typeinfo.goodsinfo_set.order_by('-id')[0:2]
     goods_list = []
-    # list中间栏商品显示方式
     cart_num, guest_cart = 0, 0
 
     try:
@@ -67,6 +89,7 @@ def good_list(request, tid, pindex, sort):
         guest_cart = 1
         cart_num = CartInfo.objects.filter(user_id=int(user_id)).count()
 
+    # 根据排序方式获取商品列表
     if sort == '1':  # 默认最新
         goods_list = GoodsInfo.objects.filter(gtype_id=int(tid)).order_by('-id')
     elif sort == '2':  # 按照价格
@@ -74,9 +97,8 @@ def good_list(request, tid, pindex, sort):
     elif sort == '3':  # 按照人气点击量
         goods_list = GoodsInfo.objects.filter(gtype_id=int(tid)).order_by('-gclick')
 
-    # 创建Paginator一个分页对象
+    # 创建Paginator分页对象
     paginator = Paginator(goods_list, 4)
-    # 返回Page对象，包含商品信息
     page = paginator.page(int(pindex))
     context = {
         'title': '商品列表',
@@ -85,16 +107,22 @@ def good_list(request, tid, pindex, sort):
         'page': page,
         'paginator': paginator,
         'typeinfo': typeinfo,
-        'sort': sort,  # 排序方式
+        'sort': sort,
         'news': news,
     }
     return render(request, 'df_goods/list.html', context)
 
 
 def detail(request, gid):
+    """
+    商品详情视图函数
+    
+    Args:
+        gid: 商品ID
+    """
     good_id = gid
     goods = GoodsInfo.objects.get(pk=int(good_id))
-    goods.gclick = goods.gclick + 1  # 商品点击量
+    goods.gclick = goods.gclick + 1  # 商品点击量+1
     goods.save()
 
     news = goods.gtype.goodsinfo_set.order_by('-id')[0:2]
@@ -108,6 +136,7 @@ def detail(request, gid):
     }
     response = render(request, 'df_goods/detail.html', context)
 
+    # 记录用户浏览历史
     if 'user_id' in request.session:
         user_id = request.session["user_id"]
         try:
@@ -115,13 +144,16 @@ def detail(request, gid):
         except Exception:
             browsed_good = None
         if browsed_good:
+            # 更新浏览时间
             from datetime import datetime
             browsed_good.browser_time = datetime.now()
             browsed_good.save()
         else:
+            # 新增浏览记录
             GoodsBrowser.objects.create(user_id=int(user_id), good_id=int(good_id))
             browsed_goods = GoodsBrowser.objects.filter(user_id=int(user_id))
             browsed_good_count = browsed_goods.count()
+            # 最多保留5条浏览记录
             if browsed_good_count > 5:
                 ordered_goods = browsed_goods.order_by("-browser_time")
                 for _ in ordered_goods[5:]:
@@ -130,66 +162,217 @@ def detail(request, gid):
 
 
 def cart_count(request):
+    """获取购物车商品数量"""
     if 'user_id' in request.session:
         return CartInfo.objects.filter(user_id=request.session['user_id']).count
     else:
         return 0
 
 
-# def ordinary_search(request):
+# ==================== [新增] 搜索相关辅助函数 ====================
 
-#     from django.db.models import Q
+def is_pinyin(text):
+    """
+    [新增] 判断输入是否为拼音（纯字母）
+    
+    用于区分用户输入的是中文还是拼音，以便采用不同的搜索策略。
+    
+    Args:
+        text: 用户输入的搜索关键词
+        
+    Returns:
+        bool: 如果是纯字母返回True，否则返回False
+        
+    Examples:
+        >>> is_pinyin('caomei')
+        True
+        >>> is_pinyin('草莓')
+        False
+    """
+    return bool(re.match(r'^[a-zA-Z]+$', text))
 
-#     search_keywords = request.GET.get('q', '')
-#     pindex = request.GET.get('pindex', 1)
-#     search_status = 1
-#     cart_num, guest_cart = 0, 0
 
-#     try:
-#         user_id = request.session['user_id']
-#     except:
-#         user_id = None
-
-#     if user_id:
-#         guest_cart = 1
-#         cart_num = CartInfo.objects.filter(user_id=int(user_id)).count()
-
-#     goods_list = GoodsInfo.objects.filter(
-#         Q(gtitle__icontains=search_keywords) |
-#         Q(gcontent__icontains=search_keywords) |
-#         Q(gjianjie__icontains=search_keywords)).order_by("gclick")
-
-#     if goods_list.count() == 0:
-#         # 商品搜索结果为空，返回推荐商品
-#         search_status = 0
-#         goods_list = GoodsInfo.objects.all().order_by("gclick")[:4]
-
-#     paginator = Paginator(goods_list, 4)
-#     page = paginator.page(int(pindex))
-
-#     context = {
-#         'title': '搜索列表',
-#         'search_status': search_status,
-#         'guest_cart': guest_cart,
-#         'cart_num': cart_num,
-#         'page': page,
-#         'paginator': paginator,
-#     }
-#     return render(request, 'df_goods/ordinary_search.html', context)
+def build_search_query(search_keywords):
+    """
+    [新增] 构建增强的ES搜索查询
+    
+    根据用户输入的关键词类型，构建不同的ES查询语句。
+    支持多种搜索场景：
+    
+    1. 拼音首字母搜索（输入长度<=4的纯字母）
+       例如：'cm' -> 草莓、'sg' -> 水果
+       
+    2. 拼音全拼搜索（输入长度>4的纯字母）
+       例如：'caomei' -> 草莓、'shuiguo' -> 水果
+       
+    3. 英文名称搜索（输入较长的纯字母，可能是英文）
+       例如：'strawberry' -> 草莓
+       
+    4. 中文搜索（包含中文的关键词）
+       支持模糊匹配、分类关联、多关键词筛选
+       
+    Args:
+        search_keywords: 用户输入的搜索关键词
+        
+    Returns:
+        dict: ES查询语句字典
+    """
+    # 将关键词按空格分割，支持多关键词搜索
+    keywords = search_keywords.split()
+    
+    # ==================== 拼音搜索逻辑 ====================
+    if is_pinyin(search_keywords):
+        # 短拼音（<=4个字符）：优先匹配拼音首字母
+        if len(search_keywords) <= 4:
+            return {
+                'bool': {
+                    'should': [
+                        {
+                            'term': {
+                                'gtitle_pinyin_abbr': {
+                                    'value': search_keywords.lower(),
+                                    'boost': 3.0
+                                }
+                            }
+                        },
+                        {
+                            'match': {
+                                'gtitle_pinyin': {
+                                    'query': search_keywords,
+                                    'boost': 2.0
+                                }
+                            }
+                        },
+                        {
+                            'match': {
+                                'gtype.ttitle_pinyin': {
+                                    'query': search_keywords,
+                                    'boost': 1.5
+                                }
+                            }
+                        }
+                    ]
+                }
+            }
+        # 长拼音（>4个字符）：匹配拼音全拼或英文
+        else:
+            return {
+                'bool': {
+                    'should': [
+                        # 英文名称精确匹配（权重最高）
+                        {
+                            'term': {
+                                'gtitle_en': {
+                                    'value': search_keywords.lower(),
+                                    'boost': 5.0
+                                }
+                            }
+                        },
+                        # 拼音全拼匹配
+                        {
+                            'match': {
+                                'gtitle_pinyin': {
+                                    'query': search_keywords,
+                                    'boost': 3.0
+                                }
+                            }
+                        },
+                        # 分类拼音匹配
+                        {
+                            'match': {
+                                'gtype.ttitle_pinyin': {
+                                    'query': search_keywords,
+                                    'boost': 2.0
+                                }
+                            }
+                        }
+                    ]
+                }
+            }
+    
+    # ==================== 中文搜索逻辑 ====================
+    # 构建多字段搜索条件
+    should_clauses = []
+    
+    for keyword in keywords:
+        keyword_clauses = [
+            # 匹配商品名称（带模糊匹配，支持错别字）
+            {
+                'match': {
+                    'gtitle': {
+                        'query': keyword,
+                        'boost': 4.0,           # 商品名称权重最高
+                        'fuzziness': 'AUTO',    # 自动模糊匹配，支持错别字
+                        'minimum_should_match': '75%'  # 至少匹配75%的字符
+                    }
+                }
+            },
+            # 匹配商品名称关键词字段（用于模糊匹配）
+            {
+                'match': {
+                    'gtitle.keyword': {
+                        'query': keyword,
+                        'boost': 3.5,
+                        'fuzziness': 1  # 允许1个字符的差异
+                    }
+                }
+            },
+            # 匹配分类名称（支持分类关联搜索）
+            {
+                'match': {
+                    'gtype.ttitle': {
+                        'query': keyword,
+                        'boost': 3.0  # 分类匹配权重较高
+                    }
+                }
+            },
+            # 匹配商品拼音（支持中文输入时也能匹配拼音）
+            {
+                'match': {
+                    'gtitle_pinyin': {
+                        'query': keyword,
+                        'boost': 2.5
+                    }
+                }
+            },
+            # 匹配英文名称
+            {
+                'term': {
+                    'gtitle_en': {
+                        'value': keyword.lower(),
+                        'boost': 4.0,
+                        'case_insensitive': True
+                    }
+                }
+            }
+        ]
+        should_clauses.extend(keyword_clauses)
+    
+    # 返回组合查询
+    # minimum_should_match: 必须至少匹配一个关键词的所有条件
+    return {
+        'bool': {
+            'should': should_clauses,
+            'minimum_should_match': len(keywords)
+        }
+    }
 
 
 def ordinary_search(request):
     """
-    基于Elasticsearch的商品搜索功能
     
     功能特点：
-    1. 支持多字段模糊搜索（商品名称、简介、详情）
-    2. 支持中文分词（IK分词器）
-    3. 支持相关性评分排序
-    4. 支持分页展示
+    1. 模糊搜索：草莓 -> XX草莓、草莓XX
+    2. 分类关联搜索：水果 -> 该分类下所有商品
+    3. 联想词搜索：莓 -> 草莓、蓝莓
+    4. 多重筛选：进口 蓝莓 -> 同时包含两个关键词的商品
+    5. 错别字容错：草霉 -> 草莓
+    6. 英文搜索：strawberry -> 草莓商品
+    7. 拼音搜索：caomei -> 草莓商品
     
-    Args:
-        request: HTTP请求对象
+    请求参数：
+        q: 搜索关键词
+        page: 页码（默认为1）
         
     Returns:
         渲染后的搜索结果页面
@@ -197,109 +380,66 @@ def ordinary_search(request):
     from django.db.models import Q
     
     # ==================== 参数初始化 ====================
-    # 获取搜索关键词，默认为空字符串
-    search_keywords = request.GET.get('q', '')
-    # 获取当前页码，默认为第1页
-    page_num = int(request.GET.get('page', 1))
-    # 每页显示的商品数量
-    page_size = 4
-    # 搜索状态标识：1=有搜索结果，0=无搜索结果
-    search_status = 1
-    # 购物车商品数量和购物车显示标识
+    search_keywords = request.GET.get('q', '').strip()  # 搜索关键词，去除首尾空格
+    page_num = int(request.GET.get('page', 1))          # 当前页码
+    page_size = 4                                        # 每页显示数量
+    search_status = 1                                    # 搜索状态：1=有结果，0=无结果
     cart_num, guest_cart = 0, 0
 
     # ==================== 用户信息获取 ====================
-    # 尝试从session中获取当前登录用户的ID
     try:
         user_id = request.session['user_id']
     except:
         user_id = None
 
-    # 如果用户已登录，获取购物车商品数量
     if user_id:
-        guest_cart = 1  # 显示购物车
+        guest_cart = 1
         cart_num = CartInfo.objects.filter(user_id=int(user_id)).count()
 
     # ==================== 搜索结果容器初始化 ====================
-    # 存储搜索结果商品列表
     goods_list = []
-    # 搜索结果总数
     total_count = 0
-    # 存储高亮片段，key为商品ID，value为高亮字段字典（已禁用高亮功能）
-    # highlights = {}
 
     # ==================== Elasticsearch搜索逻辑 ====================
     if search_keywords:
         try:
-            # 创建ES客户端连接，从settings中读取ES服务器地址
+            # 创建ES客户端连接
             es = Elasticsearch(hosts=[settings.ELASTICSEARCH_DSL['default']['hosts']])
             
-            # 构建ES搜索请求
+            # 构建搜索查询
+            search_query = build_search_query(search_keywords)
+            
+            # 执行搜索 - 获取所有结果，在Django层面分页
             response = es.search(
-                index='goods',  # 索引名称
+                index='goods',
                 body={
-                    # 查询条件
-                    'query': {
-                        'multi_match': {
-                            'query': search_keywords,  # 搜索关键词
-                            # 搜索字段及权重：gtitle权重3，gjianjie权重2，gcontent权重1
-                            # ^符号表示权重提升，数值越大权重越高
-                            'fields': ['gtitle^3', 'gjianjie^2', 'gcontent'],
-                            # best_fields: 取最佳匹配字段的得分
-                            'type': 'best_fields',
-                            # 使用IK智能分词器进行中文分词
-                            'analyzer': 'ik_smart'
-                        }
-                    },
-                    # 高亮配置（已禁用）
-                    # 'highlight': {
-                    #     'fields': {
-                    #         'gtitle': {},      # 商品名称高亮
-                    #         'gjianjie': {},    # 商品简介高亮
-                    #         'gcontent': {},    # 商品详情高亮
-                    #     },
-                    #     # 高亮标签，用于前端CSS样式
-                    #     'pre_tags': ['<em class="highlight">'],
-                    #     'post_tags': ['</em>'],
-                    # },
-                    # 分页参数：from表示偏移量，size表示每页数量
-                    'from': (page_num - 1) * page_size,
-                    'size': page_size,
-                    # 排序规则：先按相关性得分降序，再按点击量降序
+                    'query': search_query,
+                    'from': 0,           # 从第一条开始
+                    'size': 100,         # 获取足够多的数据（最多100条）
                     'sort': [
-                        '_score',  # 相关性得分
-                        {'gclick': {'order': 'desc'}}  # 点击量
-                    ]
+                        '_score',                          # 按相关性得分排序
+                        {'gclick': {'order': 'desc'}}      # 按点击量降序
+                    ],
+                    'min_score': 0.1  # 最低相关性得分阈值
                 }
             )
 
-            # 解析搜索结果总数
+            # 解析搜索结果
             total_count = response['hits']['total']['value']
             
-            # 遍历搜索结果，提取商品信息
             for hit in response['hits']['hits']:
-                # 获取商品原始数据
                 source = hit['_source']
-                # 添加商品ID（ES中的文档ID）
-                source['id'] = hit['_id']
-                # 添加相关性得分，可用于排序展示
-                source['score'] = hit['_score']
-                
-                # 高亮结果处理（已禁用）
-                # if 'highlight' in hit:
-                #     highlights[source['id']] = hit['highlight']
-                
-                # 将商品添加到结果列表
+                source['id'] = hit['_id']       # 商品ID
+                source['score'] = hit['_score'] # 相关性得分
                 goods_list.append(source)
 
             # 如果搜索结果为空，返回推荐商品
             if total_count == 0:
-                search_status = 0  # 标记为无搜索结果
-                # 从数据库获取点击量最高的4件商品作为推荐
+                search_status = 0
                 goods_list = list(GoodsInfo.objects.all().order_by('-gclick')[:4].values())
                 
         except Exception as e:
-            # ES搜索异常处理，打印详细错误日志并返回推荐商品
+            # ES搜索异常处理
             import traceback
             print(f"ES搜索异常: {e}")
             traceback.print_exc()
@@ -310,12 +450,9 @@ def ordinary_search(request):
         search_status = 0
         goods_list = list(GoodsInfo.objects.all().order_by('-gclick')[:4].values())
 
+
     # ==================== 分页处理 ====================
-    # 创建分页器对象
     paginator = Paginator(goods_list, page_size)
-    # 手动设置总数，用于正确计算总页数
-    paginator._count = total_count if total_count > 0 else len(goods_list)
-    # 获取当前页数据
     page = paginator.page(page_num)
 
     # ==================== 构建模板上下文 ====================
@@ -326,9 +463,7 @@ def ordinary_search(request):
         'cart_num': cart_num,              # 购物车商品数量
         'page': page,                      # 当前页数据
         'paginator': paginator,            # 分页器对象
-        'query': search_keywords,          # 搜索关键词（用于前端显示）
-        # 'highlights': highlights,        # 高亮结果字典（已禁用）
+        'query': search_keywords,          # 搜索关键词
         'total_count': total_count,        # 搜索结果总数
     }
     return render(request, 'df_goods/ordinary_search.html', context)
-    

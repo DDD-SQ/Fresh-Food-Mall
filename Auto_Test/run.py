@@ -3,6 +3,7 @@ import sys
 import subprocess
 import shutil
 import time
+import platform
 from datetime import datetime
 
 
@@ -11,8 +12,13 @@ class TestRunner:
         self.project_root = os.path.dirname(os.path.abspath(__file__))
         self.allure_results_dir = os.path.join(self.project_root, "reports", "allure-results")
         self.allure_report_dir = os.path.join(self.project_root, "reports", "allure-report")
+        self.screenshots_dir = os.path.join(self.project_root, "screenshots")
         # 设置Allure报告语言为中文
         os.environ['ALLURE_LOCALE'] = 'zh_CN'
+
+    def is_linux(self):
+        """判断是否为Linux系统"""
+        return platform.system().lower() == 'linux'
 
     def create_directories(self):
         """创建必要的目录"""
@@ -34,6 +40,13 @@ class TestRunner:
             shutil.rmtree(self.allure_results_dir)
             print(f"清理Allure结果目录: {self.allure_results_dir}")
         os.makedirs(self.allure_results_dir)
+
+    def clean_screenshots(self):
+        """清理之前的截图"""
+        if os.path.exists(self.screenshots_dir):
+            shutil.rmtree(self.screenshots_dir)
+            print(f"清理截图目录: {self.screenshots_dir}")
+        os.makedirs(self.screenshots_dir)
 
     def run_pytest(self, test_module=None):
         """运行pytest测试"""
@@ -68,8 +81,13 @@ class TestRunner:
             print("下载地址: https://docs.qameta.io/allure/#_installing_a_commandline")
             return False
 
+        # 清理旧的报告目录
+        if os.path.exists(self.allure_report_dir):
+            shutil.rmtree(self.allure_report_dir)
+            print(f"清理Allure报告目录: {self.allure_report_dir}")
+
         # 生成Allure报告
-        cmd = ["allure", "generate", self.allure_results_dir, "-o", self.allure_report_dir, "--clean", "--single-file"]
+        cmd = ["allure", "generate", self.allure_results_dir, "-o", self.allure_report_dir, "--single-file"]
         print(f"执行命令: {' '.join(cmd)}")
 
         result = subprocess.run(cmd, shell=True)
@@ -82,6 +100,10 @@ class TestRunner:
 
     def open_allure_report(self):
         """打开Allure报告"""
+        if self.is_linux():
+            print("Linux系统不自动打开报告，报告路径: " + os.path.join(self.allure_report_dir, "index.html"))
+            return
+
         if not os.path.exists(self.allure_report_dir):
             print("Allure报告目录不存在")
             return
@@ -97,8 +119,9 @@ class TestRunner:
         # 创建必要的目录
         self.create_directories()
 
-        # 清理之前的测试结果
+        # 清理之前的测试结果和截图
         self.clean_allure_results()
+        self.clean_screenshots()
 
         # 运行测试
         start_time = time.time()
@@ -120,8 +143,9 @@ class TestRunner:
         # 创建必要的目录
         self.create_directories()
 
-        # 清理之前的测试结果
+        # 清理之前的测试结果和截图
         self.clean_allure_results()
+        self.clean_screenshots()
 
         # 运行测试
         start_time = time.time()

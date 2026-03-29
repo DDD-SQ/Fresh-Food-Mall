@@ -61,11 +61,11 @@ WSGI_APPLICATION = 'daily_fresh_demo.wsgi.application'
 DATABASES = {
     'default': {
         'ENGINE': 'django.db.backends.mysql',
-        'NAME': 'daily_fresh',
-        'USER': 'root',
-        'PASSWORD': '123456',
-        'HOST': 'localhost',
-        'PORT': '3306',
+        'NAME': os.environ.get('MYSQL_DATABASE', 'daily_fresh'),
+        'USER': os.environ.get('MYSQL_USER','root'),
+        'PASSWORD': os.environ.get('MYSQL_PASSWORD','123456'),
+        'HOST': os.environ.get('MYSQL_HOST','localhost'),
+        'PORT': os.environ.get('MYSQL_PORT', '3306'),
         'OPTIONS': {
             'charset': 'utf8mb4',
         }
@@ -125,7 +125,7 @@ FIXED_USER_ID = 32
 # 注意：ES 8.x 需要完整的 URL 格式（包含 http:// 或 https://）
 ELASTICSEARCH_DSL = {
     'default': {
-        'hosts': 'http://localhost:9200',  # ES 8.x 需要完整的 URL
+        'hosts': os.environ.get('ELASTICSEARCH_HOST','http://localhost:9200'),  # ES 8.x 需要完整的 URL
         # 如果启用了安全认证，取消下面的注释并填写正确的用户名密码
         # 'http_auth': ('elastic', 'your_password'),
         'http_auth': None,  # 无认证模式
